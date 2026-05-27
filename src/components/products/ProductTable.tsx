@@ -31,6 +31,8 @@ export default function ProductTable() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Producto | null>(null);
   const [saving, setSaving] = useState(false);
+  const [editingCodeId, setEditingCodeId] = useState<string | null>(null);
+  const [editingCodeValue, setEditingCodeValue] = useState("");
 
   // Form state
   const [form, setForm] = useState({
@@ -98,7 +100,7 @@ export default function ProductTable() {
     setForm({
       codigo: producto.codigo,
       nombre: producto.nombre,
-      descripcion: "",
+      descripcion: producto.descripcion || "",
       precioCompra: String(producto.precioCompra),
       precioVenta: String(producto.precioVenta),
       stock: String(producto.stock),
@@ -106,6 +108,27 @@ export default function ProductTable() {
       categoriaId: producto.categoria?.id || "",
     });
     setModalOpen(true);
+  };
+
+  const saveInlineCode = async (producto: Producto) => {
+    if (!editingCodeValue.trim() || editingCodeValue === producto.codigo) {
+      setEditingCodeId(null);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/productos/${producto.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...producto, codigo: editingCodeValue.trim() }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Código actualizado");
+      setEditingCodeId(null);
+      fetchProductos();
+    } catch {
+      toast.error("Error al actualizar código");
+      setEditingCodeId(null);
+    }
   };
 
   const handleToggleActive = async (producto: Producto) => {
@@ -236,7 +259,33 @@ export default function ProductTable() {
               <tbody className="divide-y divide-gray-100">
                 {productos.map((p) => (
                   <tr key={p.id} className={`hover:bg-gray-50 transition-colors ${!p.activo ? "opacity-50" : ""}`}>
-                    <td className="px-4 py-3 font-mono text-xs text-gray-500">{p.codigo}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-gray-500">
+                      {editingCodeId === p.id ? (
+                        <input
+                          autoFocus
+                          value={editingCodeValue}
+                          onChange={(e) => setEditingCodeValue(e.target.value)}
+                          onBlur={() => saveInlineCode(p)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") saveInlineCode(p);
+                            if (e.key === "Escape") setEditingCodeId(null);
+                          }}
+                          className="w-full px-1 py-0.5 rounded border border-blue-400 text-xs outline-none"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : (
+                        <span
+                          className="cursor-pointer hover:text-blue-600 hover:underline decoration-dotted"
+                          onClick={() => {
+                            setEditingCodeId(p.id);
+                            setEditingCodeValue(p.codigo);
+                          }}
+                          title="Click para editar código"
+                        >
+                          {p.codigo}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 font-medium text-gray-900">{p.nombre}</td>
                     <td className="px-4 py-3 text-gray-500">{p.categoria?.nombre}</td>
                     <td className="px-4 py-3 text-right text-gray-600">

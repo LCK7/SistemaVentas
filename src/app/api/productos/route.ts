@@ -10,6 +10,7 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const query = searchParams.get("q") || "";
+  const codigoExacto = searchParams.get("codigoExacto");
   const categoriaId = searchParams.get("categoriaId");
   const incluirInactivos = searchParams.get("incluirInactivos") === "true";
   const page = parseInt(searchParams.get("page") || "1");
@@ -18,11 +19,22 @@ export async function GET(req: NextRequest) {
   const where: any = {};
   if (!incluirInactivos) where.activo = true;
   if (categoriaId) where.categoriaId = categoriaId;
-  if (query) {
+
+  if (codigoExacto) {
+    where.codigo = codigoExacto;
+  } else if (query) {
     where.OR = [
       { nombre: { contains: query, mode: "insensitive" } },
       { codigo: { contains: query, mode: "insensitive" } },
     ];
+  }
+
+  if (codigoExacto) {
+    const producto = await prisma.producto.findFirst({
+      where,
+      include: { categoria: { select: { id: true, nombre: true } } },
+    });
+    return NextResponse.json({ producto, total: producto ? 1 : 0, page: 1, limit: 1 });
   }
 
   const [productos, total] = await Promise.all([

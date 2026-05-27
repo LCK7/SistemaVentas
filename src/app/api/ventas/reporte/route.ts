@@ -103,9 +103,14 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // PDF
+  // PDF — tabla manual sin jspdf-autotable
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
+  const marginLeft = 10;
+  const marginRight = 10;
+  const colWidths = [14, 22, 30, 28, 10, 18, 28];
+  const tableWidth = colWidths.reduce((a, b) => a + b, 0);
+  const startX = marginLeft;
 
   // Título
   doc.setFontSize(18);
@@ -116,31 +121,80 @@ export async function GET(req: NextRequest) {
 
   // Resumen
   doc.setFontSize(11);
-  doc.text(`Periodo: ${desde || "Inicio"} - ${hasta || new Date().toLocaleDateString("es-PE")}`, 14, 38);
-  doc.text(`Total Ventas: ${totalVentas}`, 14, 44);
-  doc.text(`Monto Total: S/ ${montoTotal.toFixed(2)}`, 14, 50);
-  doc.text(`Tickets: #${ticketMin} - #${ticketMax}`, 14, 56);
+  let y = 36;
+  doc.text(`Periodo: ${desde || "Inicio"} - ${hasta || new Date().toLocaleDateString("es-PE")}`, marginLeft, y); y += 6;
+  doc.text(`Total Ventas: ${totalVentas}`, marginLeft, y); y += 6;
+  doc.text(`Monto Total: S/ ${montoTotal.toFixed(2)}`, marginLeft, y); y += 6;
+  doc.text(`Tickets: #${ticketMin} - #${ticketMax}`, marginLeft, y); y += 8;
 
-  // Tabla
-  const tableData = ventas.map((v) => [
-    `#${v.numeroTicket}`,
-    v.createdAt.toLocaleDateString("es-PE"),
-    v.usuario.nombre,
-    v.cliente?.nombre || "-",
-    v.detalles.reduce((s, d) => s + d.cantidad, 0).toString(),
-    v.metodoPago,
-    `S/ ${Number(v.total).toFixed(2)}`,
-  ]);
+  const headers = ["Ticket", "Fecha", "Vendedor", "Cliente", "Items", "Pago", "Total"];
 
-  (doc as any).autoTable({
-    startY: 62,
-    head: [["Ticket", "Fecha", "Vendedor", "Cliente", "Items", "Pago", "Total"]],
-    body: tableData,
-    foot: [["", "", "", "", "", "TOTAL:", `S/ ${montoTotal.toFixed(2)}`]],
-    styles: { fontSize: 8 },
-    headStyles: { fillColor: [37, 99, 235], textColor: 255 },
-    footStyles: { fillColor: [243, 244, 246], textColor: [17, 24, 39], fontStyle: "bold" },
-  });
+  function drawRow(cells: string[], yPos: number, isHeader = false, isFooter = false) {
+    let x = startX;
+    const rowH = isHeader ? 7 : 6;
+
+    if (isHeader) {
+      doc.setFillColor(37, 99, 235);
+      doc.setTextColor(255);
+      doc.setFontSize(7);
+      doc.rect(x, yPos, tableWidth, rowH, "F");
+    } else if (isFooter) {
+      doc.setFillColor(243, 244, 246);
+      doc.setTextColor(17, 24, 39);
+      doc.setFontSize(7);
+      doc.rect(x, yPos, tableWidth, rowH, "F");
+    } else if (yPos % 12 === 0) {
+      doc.setFillColor(249, 250, 251);
+      doc.rect(x, yPos, tableWidth, rowH, "F");
+    }
+
+    if (!isHeader) {
+      doc.setTextColor(55, 65, 81);
+      doc.setFontSize(6.5);
+    }
+
+    cells.forEach((cell, i) => {
+      const align = i === 0 || i === 4 || i === 6 ? "right" : "left";
+      const textX = align === "right" ? x + colWidths[i] - 2 : x + 1;
+      doc.text(cell, textX, yPos + (isHeader ? 4.5 : 4), { align });
+      doc.setDrawColor(200);
+      doc.line(x + colWidths[i], yPos, x + colWidths[i], yPos + rowH);
+      x += colWidths[i];
+    });
+
+    doc.setDrawColor(200);
+    doc.line(startX, yPos, startX + tableWidth, yPos);
+    doc.line(startX, yPos + rowH, startX + tableWidth, yPos + rowH);
+
+    return yPos + rowH;
+  }
+
+  // Encabezado
+  y = drawRow(headers, y, true);
+  const startY = y;
+
+  // Filas de datos
+  for (const v of ventas) {
+    const row = [
+      `#${v.numeroTicket}`,
+      v.createdAt.toLocaleDateString("es-PE"),
+      v.usuario.nombre,
+      v.cliente?.nombre || "-",
+      v.detalles.reduce((s, d) => s + d.cantidad, 0).toString(),
+      v.metodoPago,
+      `S/ ${Number(v.total).toFixed(2)}`,
+    ];
+
+    if (y > 270) {
+      doc.addPage();
+      y = 20;
+      y = drawRow(headers, y, true);
+    }
+    y = drawRow(row, y);
+  }
+
+  // Fila de total
+  y = drawRow(["", "", "", "", "", "TOTAL:", `S/ ${montoTotal.toFixed(2)}`], y, false, true);
 
   const pdfBuffer = Buffer.from(doc.output("arraybuffer"));
 

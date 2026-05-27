@@ -6,9 +6,9 @@ import { formatCurrency } from "@/lib/utils";
 
 type ResumenData = {
   caja: { saldoActual: number; nombre: string };
-  hoy: { ventas: number; tickets: number; gastos: number; gastosCount: number; balance: number };
-  mes: { ventas: number; tickets: number; gastos: number; gastosCount: number; balance: number };
-  historico: { totalVentas: number; totalGastos: number };
+  hoy: { ventas: number; tickets: number; gastos: number; gastosCount: number; egresos: number; egresosCount: number; totalSalidas: number; balance: number };
+  mes: { ventas: number; tickets: number; gastos: number; gastosCount: number; egresos: number; egresosCount: number; totalSalidas: number; balance: number };
+  historico: { totalVentas: number; totalGastos: number; totalEgresos: number };
   ventasPorDia: { fecha: string; total: number; ventas: number }[];
   gastosPorCategoria: { categoria: string; _sum: { monto: number | null }; _count: number }[];
   metodosPago: { metodoPago: string; _sum: { total: number | null }; _count: number }[];
@@ -114,9 +114,11 @@ export default function FinanzasDashboard() {
             </div>
             <span className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded-full font-medium">Hoy</span>
           </div>
-          <p className="text-3xl font-bold text-gray-900">{formatCurrency(data.hoy.gastos)}</p>
-          <p className="text-sm text-gray-500 mt-1">Gastos del Día</p>
-          <p className="text-xs text-gray-400 mt-1">{data.hoy.gastosCount} registros</p>
+          <p className="text-3xl font-bold text-gray-900">{formatCurrency(data.hoy.totalSalidas)}</p>
+          <p className="text-sm text-gray-500 mt-1">Salidas del Día</p>
+          <p className="text-xs text-gray-400 mt-1">
+            {formatCurrency(data.hoy.gastos)} gastos · {formatCurrency(data.hoy.egresos)} egresos
+          </p>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-lg transition-all">
@@ -285,11 +287,13 @@ export default function FinanzasDashboard() {
 
             <div className="p-4 rounded-xl bg-gradient-to-r from-red-50 to-red-100/50 border border-red-200">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-sm text-red-700 font-medium">Gastos del Mes</span>
+                <span className="text-sm text-red-700 font-medium">Salidas del Mes</span>
                 <TrendingDown className="w-4 h-4 text-red-500" />
               </div>
-              <p className="text-2xl font-bold text-red-900">{formatCurrency(data.mes.gastos)}</p>
-              <p className="text-xs text-red-600">{data.mes.gastosCount} registros</p>
+              <p className="text-2xl font-bold text-red-900">{formatCurrency(data.mes.totalSalidas)}</p>
+              <p className="text-xs text-red-600">
+                {formatCurrency(data.mes.gastos)} gastos · {formatCurrency(data.mes.egresos)} egresos
+              </p>
             </div>
 
             <div className="p-4 rounded-xl bg-gradient-to-r from-emerald-50 to-emerald-100/50 border border-emerald-200">
@@ -304,8 +308,8 @@ export default function FinanzasDashboard() {
               <p className={`text-2xl font-bold ${data.mes.balance >= 0 ? "text-emerald-900" : "text-red-900"}`}>
                 {formatCurrency(data.mes.balance)}
               </p>
-              <p className="text-xs text-emerald-600">
-                {data.mes.balance >= 0 ? "Ganancia neta" : "Pérdida neta"}
+              <p className="text-xs text-gray-500">
+                Ventas - Salidas (gastos + egresos)
               </p>
             </div>
 
@@ -317,6 +321,10 @@ export default function FinanzasDashboard() {
               <div className="flex items-center justify-between text-sm mt-1">
                 <span className="text-gray-500">Total histórico gastos</span>
                 <span className="font-semibold text-gray-900">{formatCurrency(data.historico.totalGastos)}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm mt-1">
+                <span className="text-gray-500">Total histórico egresos</span>
+                <span className="font-semibold text-gray-900">{formatCurrency(data.historico.totalEgresos)}</span>
               </div>
             </div>
           </div>

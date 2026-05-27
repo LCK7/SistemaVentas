@@ -14,7 +14,7 @@ export async function GET() {
       include: {
         movimientos: {
           orderBy: { createdAt: "desc" },
-          take: 20,
+          take: 50,
           include: { usuario: { select: { nombre: true } } },
         },
       },
@@ -24,7 +24,18 @@ export async function GET() {
       return NextResponse.json({ error: "No hay caja activa" }, { status: 404 });
     }
 
-    return NextResponse.json(caja);
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    const ventasHoy = await prisma.venta.aggregate({
+      where: { createdAt: { gte: hoy }, cajaId: caja.id, estado: "COMPLETADA" },
+      _sum: { total: true },
+    });
+
+    return NextResponse.json({
+      ...caja,
+      ventasHoyTotal: Number(ventasHoy._sum.total || 0),
+    });
   } catch (error) {
     console.error("Error obteniendo caja:", error);
     return NextResponse.json({ error: "Error al obtener caja" }, { status: 500 });
@@ -47,13 +58,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No hay caja activa" }, { status: 404 });
     }
 
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    // Verificar si ya hay cierre hoy — bloquea todo después del cierre
+    const existingCierre = await prisma.movimientoCaja.findFirst({
+      where: { cajaId: caja.id, tipo: "CIERRE", createdAt: { gte: hoy } },
+    });
+    if (existingCierre) {
+      return NextResponse.json({ error: "La caja ya fue cerrada hoy. No se permiten más movimientos." }, { status: 400 });
+    }
+
     if (tipo === "APERTURA") {
       const existingApertura = await prisma.movimientoCaja.findFirst({
-        where: {
-          cajaId: caja.id,
-          tipo: "APERTURA",
-          createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
-        },
+        where: { cajaId: caja.id, tipo: "APERTURA", createdAt: { gte: hoy } },
       });
       if (existingApertura) {
         return NextResponse.json({ error: "La caja ya fue abierta hoy" }, { status: 400 });
@@ -77,10 +95,15 @@ export async function POST(req: NextRequest) {
         where: { id: caja.id },
         data: { saldoActual: { increment: parseFloat(monto) || 0 } },
       });
-    } else if (tipo === "CIERRE" || tipo === "EGRESO") {
+    } else if (tipo === "EGRESO") {
       await prisma.caja.update({
         where: { id: caja.id },
         data: { saldoActual: { decrement: parseFloat(monto) || 0 } },
+      });
+    } else if (tipo === "CIERRE") {
+      await prisma.caja.update({
+        where: { id: caja.id },
+        data: { saldoActual: parseFloat(monto) || 0 },
       });
     }
 

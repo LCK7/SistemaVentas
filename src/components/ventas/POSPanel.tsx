@@ -51,13 +51,26 @@ export default function POSPanel() {
   const [clientes, setClientes] = useState<{ id: string; nombre: string }[]>([]);
   const [clienteSeleccionado, setClienteSeleccionado] = useState<{ id: string; nombre: string } | null>(null);
   const [showClienteDropdown, setShowClienteDropdown] = useState(false);
+  const [cajaCerrada, setCajaCerrada] = useState(false);
 
   useEffect(() => {
     fetchProductos();
     fetchCategorias();
     fetchClientes();
+    fetchCajaStatus();
     setTimeout(() => searchInputRef.current?.focus(), 100);
   }, []);
+
+  const fetchCajaStatus = async () => {
+    try {
+      const res = await fetch("/api/caja");
+      const data = await res.json();
+      const movs = data.movimientos || [];
+      setCajaCerrada(!!movs.find((m: any) => m.tipo === "CIERRE"));
+    } catch {
+      setCajaCerrada(false);
+    }
+  };
 
   useEffect(() => {
     const q = search.toLowerCase();
@@ -157,9 +170,28 @@ export default function POSPanel() {
   const total = cart.reduce((sum, item) => sum + item.subtotal, 0);
   const vuelto = montoPagado ? parseFloat(montoPagado) - total : 0;
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && search && productosFiltrados.length > 0) {
-      addToCart(productosFiltrados[0]);
+  const buscarPorCodigoExacto = async (codigo: string) => {
+    try {
+      const res = await fetch(`/api/productos?codigoExacto=${encodeURIComponent(codigo)}`);
+      const data = await res.json();
+      if (data.producto) {
+        addToCart(data.producto);
+        return true;
+      }
+    } catch {}
+    return false;
+  };
+
+  const handleKeyDown = async (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && search) {
+      const esNumerico = /^\d+$/.test(search.trim());
+      if (esNumerico) {
+        const encontrado = await buscarPorCodigoExacto(search.trim());
+        if (encontrado) return;
+      }
+      if (productosFiltrados.length > 0) {
+        addToCart(productosFiltrados[0]);
+      }
     }
   };
 
@@ -215,7 +247,15 @@ export default function POSPanel() {
   }
 
   return (
-    <div className="flex gap-4 h-[calc(100vh-12rem)]">
+    <div className="flex flex-col gap-4">
+      {/* Banner caja cerrada */}
+      {cajaCerrada && (
+        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 border border-gray-300 text-gray-600 text-sm">
+          <div className="w-2 h-2 rounded-full bg-gray-400" />
+          La caja ya fue cerrada hoy. No se pueden registrar más ventas.
+        </div>
+      )}
+      <div className="flex gap-4 h-[calc(100vh-12rem)]">
       {/* Panel izquierdo - Productos */}
       <div className="flex-1 flex flex-col bg-white rounded-xl border border-gray-200 overflow-hidden">
         {/* Búsqueda */}
@@ -266,23 +306,42 @@ export default function POSPanel() {
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {productosFiltrados.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => addToCart(p)}
-                  disabled={p.stock <= 0}
-                  className="text-left p-3 rounded-xl border-2 border-gray-100 hover:border-blue-300 hover:bg-blue-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed group"
-                >
-                  <p className="text-xs text-gray-400 font-mono">{p.codigo}</p>
-                  <p className="font-medium text-gray-900 text-sm mt-1 line-clamp-2">{p.nombre}</p>
-                  <p className="text-lg font-bold text-blue-600 mt-2">
-                    S/ {Number(p.precioVenta).toFixed(2)}
-                  </p>
-                  <p className={`text-xs mt-1 ${p.stock <= 5 ? "text-red-500" : "text-gray-400"}`}>
-                    Stock: {p.stock}
-                  </p>
-                </button>
-              ))}
+              {productosFiltrados.map((p) => {
+                const stockLevel = p.stock <= 0 ? "agotado" : p.stock <= 5 ? "bajo" : "normal";
+                const stockColors = {
+                  agotado: "bg-red-100 text-red-700 border-red-200",
+                  bajo: "bg-orange-100 text-orange-700 border-orange-200",
+                  normal: "bg-gray-50 text-gray-500 border-gray-100",
+                };
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => addToCart(p)}
+                    disabled={p.stock <= 0}
+                    className="flex flex-col p-3 rounded-xl border-2 border-gray-100 hover:border-blue-300 hover:shadow-md hover:bg-blue-50/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed group bg-white"
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <span className="text-[10px] font-mono text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">
+                        {p.codigo}
+                      </span>
+                      {p.categoria?.nombre && (
+                        <span className="text-[10px] text-gray-400 truncate max-w-[80px] text-right">
+                          {p.categoria.nombre}
+                        </span>
+                      )}
+                    </div>
+                    <p className="font-semibold text-gray-900 text-sm leading-tight line-clamp-2 min-h-[2.5em]">
+                      {p.nombre}
+                    </p>
+                    <p className="text-lg font-bold text-blue-600 mt-auto pt-2">
+                      S/ {Number(p.precioVenta).toFixed(2)}
+                    </p>
+                    <div className={`mt-2 px-2 py-1 rounded-md text-[11px] font-medium text-center border ${stockColors[stockLevel]}`}>
+                      {stockLevel === "agotado" ? "AGOTADO" : `Stock: ${p.stock}`}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
@@ -389,12 +448,16 @@ export default function POSPanel() {
             <span className="text-2xl font-bold text-gray-900">S/ {total.toFixed(2)}</span>
           </div>
           <button
-            onClick={() => setPaymentModal(true)}
-            disabled={cart.length === 0}
-            className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold text-base hover:from-blue-700 hover:to-blue-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+            onClick={() => cajaCerrada ? null : setPaymentModal(true)}
+            disabled={cart.length === 0 || cajaCerrada}
+            className={`w-full py-3 rounded-xl font-semibold text-base transition-all flex items-center justify-center gap-2 ${
+              cajaCerrada
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                : "bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 disabled:opacity-40 disabled:cursor-not-allowed"
+            }`}
           >
             <CreditCard className="w-5 h-5" />
-            Cobrar S/ {total.toFixed(2)}
+            {cajaCerrada ? "Caja Cerrada — No se puede cobrar" : `Cobrar S/ ${total.toFixed(2)}`}
           </button>
         </div>
       </div>
@@ -536,6 +599,7 @@ export default function POSPanel() {
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 }

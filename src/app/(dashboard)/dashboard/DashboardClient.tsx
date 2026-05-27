@@ -14,6 +14,7 @@ import {
   Settings,
   ArrowRight,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { formatCurrency } from "@/lib/utils";
 
 type DashboardClientProps = {
@@ -44,6 +45,18 @@ export default function DashboardClient({
   stockBajo,
   ventasRecientes,
 }: DashboardClientProps) {
+  const [fechaStr, setFechaStr] = useState("");
+  useEffect(() => {
+    setFechaStr(
+      new Date().toLocaleDateString("es-PE", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    );
+  }, []);
+
   const promedioTicket = totalTicketsHoy > 0 ? totalVentasHoy / totalTicketsHoy : 0;
 
   return (
@@ -55,12 +68,7 @@ export default function DashboardClient({
         <div className="flex items-center gap-2 mt-1">
           <p className="text-gray-500">
             Resumen del día —{" "}
-            {new Date().toLocaleDateString("es-PE", {
-              weekday: "long",
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })}
+            {fechaStr || "..."}
           </p>
           <span
             className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${

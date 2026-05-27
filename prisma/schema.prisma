@@ -52,6 +52,7 @@ model Usuario {
 
   ventas           Venta[]
   movimientosCaja  MovimientoCaja[]
+  movimientosInventario MovimientoInventario[]
 
   @@map("usuarios")
 }
@@ -126,6 +127,7 @@ model MovimientoInventario {
   productoId String
 
   producto Producto @relation(fields: [productoId], references: [id])
+  usuario  Usuario  @relation(fields: [userId], references: [id])
 
   @@index([productoId])
   @@index([createdAt])

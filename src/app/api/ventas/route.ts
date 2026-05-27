@@ -109,9 +109,18 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Actualizar saldo de caja
+    // Verificar que la caja no esté cerrada hoy
     const caja = await prisma.caja.findFirst({ where: { activo: true } });
     if (caja) {
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+      const cierreHoy = await prisma.movimientoCaja.findFirst({
+        where: { cajaId: caja.id, tipo: "CIERRE", createdAt: { gte: hoy } },
+      });
+      if (cierreHoy) {
+        return NextResponse.json({ error: "La caja ya fue cerrada hoy. No se pueden registrar más ventas." }, { status: 400 });
+      }
+
       await prisma.caja.update({
         where: { id: caja.id },
         data: { saldoActual: { increment: total } },

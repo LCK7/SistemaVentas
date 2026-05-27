@@ -14,14 +14,20 @@ export async function GET() {
     const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
     const finMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0, 23, 59, 59);
 
+    const whereEgresosHoy = { tipo: "EGRESO" as const, createdAt: { gte: hoy } };
+    const whereEgresosMes = { tipo: "EGRESO" as const, createdAt: { gte: inicioMes } };
+
     const [
       caja,
       ventasHoy,
       ventasMes,
       gastosHoy,
       gastosMes,
+      egresosHoy,
+      egresosMes,
       totalVentas,
       totalGastos,
+      totalEgresos,
       ventasPorDia,
       gastosPorCategoria,
       metodosPago,
@@ -47,12 +53,26 @@ export async function GET() {
         _sum: { monto: true },
         _count: true,
       }),
+      prisma.movimientoCaja.aggregate({
+        where: whereEgresosHoy,
+        _sum: { monto: true },
+        _count: true,
+      }),
+      prisma.movimientoCaja.aggregate({
+        where: whereEgresosMes,
+        _sum: { monto: true },
+        _count: true,
+      }),
       prisma.venta.aggregate({
         where: { estado: "COMPLETADA" },
         _sum: { total: true },
       }),
       prisma.gasto.aggregate({
         where: {},
+        _sum: { monto: true },
+      }),
+      prisma.movimientoCaja.aggregate({
+        where: { tipo: "EGRESO" },
         _sum: { monto: true },
       }),
       // Ventas por día (últimos 7 días)
@@ -80,28 +100,42 @@ export async function GET() {
       }),
     ]);
 
+    const egresosHoyTotal = Number(egresosHoy._sum.monto || 0);
+    const egresosMesTotal = Number(egresosMes._sum.monto || 0);
+    const gastosHoyTotal = Number(gastosHoy._sum.monto || 0);
+    const gastosMesTotal = Number(gastosMes._sum.monto || 0);
+    const ventasHoyTotal = Number(ventasHoy._sum.total || 0);
+    const ventasMesTotal = Number(ventasMes._sum.total || 0);
+
     return NextResponse.json({
       caja: {
         saldoActual: Number(caja?.saldoActual || 0),
         nombre: caja?.nombre || "Sin caja",
       },
       hoy: {
-        ventas: Number(ventasHoy._sum.total || 0),
+        ventas: ventasHoyTotal,
         tickets: ventasHoy._count,
-        gastos: Number(gastosHoy._sum.monto || 0),
+        gastos: gastosHoyTotal,
         gastosCount: gastosHoy._count,
-        balance: Number(ventasHoy._sum.total || 0) - Number(gastosHoy._sum.monto || 0),
+        egresos: egresosHoyTotal,
+        egresosCount: egresosHoy._count,
+        totalSalidas: gastosHoyTotal + egresosHoyTotal,
+        balance: ventasHoyTotal - gastosHoyTotal - egresosHoyTotal,
       },
       mes: {
-        ventas: Number(ventasMes._sum.total || 0),
+        ventas: ventasMesTotal,
         tickets: ventasMes._count,
-        gastos: Number(gastosMes._sum.monto || 0),
+        gastos: gastosMesTotal,
         gastosCount: gastosMes._count,
-        balance: Number(ventasMes._sum.total || 0) - Number(gastosMes._sum.monto || 0),
+        egresos: egresosMesTotal,
+        egresosCount: egresosMes._count,
+        totalSalidas: gastosMesTotal + egresosMesTotal,
+        balance: ventasMesTotal - gastosMesTotal - egresosMesTotal,
       },
       historico: {
         totalVentas: Number(totalVentas._sum.total || 0),
         totalGastos: Number(totalGastos._sum.monto || 0),
+        totalEgresos: Number(totalEgresos._sum.monto || 0),
       },
       ventasPorDia,
       gastosPorCategoria,

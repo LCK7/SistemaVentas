@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
   doc.setFontSize(7);
   doc.setFont("helvetica", "normal");
   doc.text(`Fecha: ${venta.createdAt.toLocaleDateString("es-PE", {
-    day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit"
+    day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "America/Lima"
   })}`, 5, y);
   y += 3.5;
   doc.text(`Vendedor: ${venta.usuario.nombre}`, 5, y);
@@ -156,12 +156,15 @@ export async function GET(req: NextRequest) {
   doc.setDrawColor(0);
   doc.line(3, y, pageWidth - 3, y);
 
+  // Abrir diálogo de impresión automáticamente al abrir el PDF
+  doc.addJS("print()");
+
   const pdfBuffer = Buffer.from(doc.output("arraybuffer"));
 
   return new NextResponse(pdfBuffer, {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename=boleta-${venta.numeroTicket}.pdf`,
+      "Content-Disposition": `inline; filename=boleta-${venta.numeroTicket}.pdf`,
     },
   });
 }
