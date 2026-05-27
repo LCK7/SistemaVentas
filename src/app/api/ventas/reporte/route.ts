@@ -3,7 +3,6 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import ExcelJS from "exceljs";
 import { jsPDF } from "jspdf";
-import "jspdf-autotable";
 
 export async function GET(req: NextRequest) {
   const session = await auth();

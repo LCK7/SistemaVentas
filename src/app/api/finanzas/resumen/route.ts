@@ -57,11 +57,11 @@ export async function GET() {
       }),
       // Ventas por día (últimos 7 días)
       prisma.$queryRaw`
-        SELECT DATE(created_at) as fecha, SUM(total) as total, COUNT(*) as ventas
-        FROM ventas
-        WHERE created_at >= NOW() - INTERVAL '7 days'
-          AND estado = 'COMPLETADA'
-        GROUP BY DATE(created_at)
+        SELECT DATE("createdAt") as fecha, SUM("total") as total, COUNT(*)::int as ventas
+        FROM "ventas"
+        WHERE "createdAt" >= NOW() - INTERVAL '7 days'
+          AND "estado" = 'COMPLETADA'
+        GROUP BY DATE("createdAt")
         ORDER BY fecha ASC
       `,
       // Gastos por categoría

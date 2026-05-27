@@ -7,7 +7,6 @@ export default async function DashboardHome() {
   const session = await auth();
   const user = session?.user as any;
 
-  // Obtener estadísticas del dashboard
   const [ventasHoy, totalProductos, totalVendedores, ventasRecientes] =
     await Promise.all([
       prisma.venta.findMany({
@@ -42,7 +41,6 @@ export default async function DashboardHome() {
   );
   const totalTicketsHoy = ventasHoy.length;
 
-  // Productos con stock bajo (top 5) — filtramos en JS porque Prisma no soporta comparar columnas
   const todosProductos = await prisma.producto.findMany({
     where: { activo: true },
     select: { nombre: true, stock: true, stockMinimo: true },

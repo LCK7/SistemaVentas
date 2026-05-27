@@ -13,10 +13,12 @@ import {
   Store,
   ChevronLeft,
   Receipt,
+  LayoutDashboard,
 } from "lucide-react";
 import { useState } from "react";
 
 const menuItems = [
+  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Nueva Venta", href: "/ventas/nueva", icon: ShoppingCart },
   { label: "Ventas", href: "/ventas", icon: Receipt },
   { label: "Inventario", href: "/inventario", icon: Package },

@@ -26,10 +26,21 @@ export default function FinanzasDashboard() {
     setLoading(true);
     try {
       const res = await fetch("/api/finanzas/resumen");
+      if (!res.ok) {
+        console.error("Error fetching resumen:", res.status, await res.text());
+        setData(null);
+        return;
+      }
       const json = await res.json();
+      if (!json || typeof json.ventasPorDia === "undefined") {
+        console.error("API response missing expected fields:", json);
+        setData(null);
+        return;
+      }
       setData(json);
     } catch (e) {
       console.error("Error fetching resumen:", e);
+      setData(null);
     } finally {
       setLoading(false);
     }
